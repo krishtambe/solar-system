@@ -39,5 +39,30 @@ jobs:
         - name: Archive test Results
           uses: actions/upload-artifact@v5
           with:
-            name: Mocha-Test-Results
-            path: app.js
+            name: Test-Results
+            path: package.json
+
+    code-coverage:
+      name: Code Coverage
+      runs-on: ubuntu-latest
+      steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+
+      - name: Setup NodeJs Version - 18
+        uses: actions/setip-node@v3
+        with: 
+          nodejs_version: 18
+        
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Check Code Coverage
+        run: npm run coverage
+
+      - name: Archive test Result
+        uses: actions/upload-artifact@v5
+        with:
+          name: code-coverage-result
+          path: coverage
+          retention-days: 5
