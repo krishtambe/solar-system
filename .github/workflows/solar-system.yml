@@ -36,8 +36,8 @@ jobs:
         - name: Unit Testing
           run: npm test
 
-        - name: Archive test Result
+        - name: Archive test Results
           uses: actions/upload-artifact@v5
           with:
             name: Mocha-Test-Results
-            path: README.md
+            path: app.js
