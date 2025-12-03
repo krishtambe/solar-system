@@ -36,16 +36,10 @@ jobs:
         - name: Unit Testing
           run: npm test
 
-        - name: Delete existing artifact
-          uses: geekyeggo/delete-artifact@v2
-          with:
-            name: Test-Results-${{ github.run_id }}
-          continue-on-error: true
-
         - name: Archive test Results
           uses: actions/upload-artifact@v5
           with:
-            name: Test-Results-${{ github.run_id }}
+            name: Test-Results-${{ matrix.os }}-${{ matrix.nodejs_version }}
             path: package.json
         
         - name: List the Results
