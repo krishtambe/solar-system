@@ -60,7 +60,7 @@ jobs:
         run: |
           echo "Running automatic update..."
           # This updates workflow files in-place
-          npx actions-up 
+          npx actions-up --yes
 
       - name: Commit & Push Updated Workflows
         if: steps.check.outputs['updates-found'] == 'true'
