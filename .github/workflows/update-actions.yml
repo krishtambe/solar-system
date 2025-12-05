@@ -3,6 +3,9 @@ name: Check for outdated GitHub Actions
 on:
   push
 
+permissions:
+  contents: write
+
 jobs:
   check-actions:
     name: Check & Update GitHub Actions
