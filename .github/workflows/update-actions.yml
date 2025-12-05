@@ -68,7 +68,10 @@ jobs:
       - name: Push branch using Classic PAT
         if: steps.check.outputs['updates-found'] == 'true'
         run: |
-          git push \
+           # Disable GitHub credential helper so PAT is actually used
+           git config --global credential.helper ""
+          
+           git push \
             "https://${{ secrets.PAT_CLASSIC }}@github.com/${{ github.repository }}" \
             HEAD:${UPDATE_BRANCH}
 
