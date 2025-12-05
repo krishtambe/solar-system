@@ -1,117 +1,80 @@
 name: Check for outdated GitHub Actions
+
 on:
-  push
+  push:
+    branches:
+      - main
+
 jobs:
   check-actions:
-    name: Check for GHA updates
+    name: Check & Update GitHub Actions
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: 20
 
       - name: Install actions-up
         run: npm install -g actions-up
 
       - name: Run actions-up check
-        id: actions-check
+        id: check
+        run: |
+          echo "Running actions-up check..."
+          actions-up --dry-run > actions-up-raw.txt 2>&1 || true
+
+          if grep -q "→" actions-up-raw.txt; then
+            echo "updates-found=true" >> $GITHUB_OUTPUT
+            echo "Updates found."
+          else
+            echo "updates-found=false" >> $GITHUB_OUTPUT
+            echo "No updates found."
+          fi
+
+      - name: Show Summary
         run: |
           echo "## GitHub Actions Update Check" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          # Initialize variables
-          HAS_UPDATES=false
-          UPDATE_COUNT=0
-
-          # Run actions-up and capture output
-          echo "Running actions-up to check for updates..."
-          actions-up --dry-run > actions-up-raw.txt 2>&1 || true
-          npx actions-up --yes
-
-          # Parse the output to detect updates
-          if grep -q "→" actions-up-raw.txt; then
-            HAS_UPDATES=true
-            # Count the number of updates (lines with arrows)
-            UPDATE_COUNT=$(grep -c "→" actions-up-raw.txt || echo "0")
-          fi
-
-          # Create formatted output
-          if [ "$HAS_UPDATES" = true ]; then
-            echo "Found $UPDATE_COUNT GitHub Actions with available updates" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.check.outputs['updates-found'] }}" = "true" ]; then
+            COUNT=$(grep -c "→" actions-up-raw.txt)
+            echo "**$COUNT updates available.**" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "<details>" >> $GITHUB_STEP_SUMMARY
-            echo "<summary>Click to see details</summary>" >> $GITHUB_STEP_SUMMARY
+            echo "<details><summary>Details</summary>" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
             cat actions-up-raw.txt >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
             echo "</details>" >> $GITHUB_STEP_SUMMARY
-
-            # Create detailed markdown report with better formatting
-            {
-              echo "## GitHub Actions Update Report"
-              echo ""
-
-              echo "### Summary"
-              echo "- **Updates available:** $UPDATE_COUNT"
-              echo ""
-
-              # See the raw output above for details.
-              echo "### How to Update"
-              echo ""
-              echo "You have several options to update these actions:"
-              echo ""
-              echo "#### Option 1: Automatic Update (Recommended)"
-              echo '```bash'
-              echo "# Run this command locally in your repository"
-              echo "npx actions-up"
-              echo '```'
-              echo ""
-              echo "#### Option 2: Manual Update"
-              echo "1. Review each update in the table above"
-              echo "2. For breaking changes, click the Release Notes link to review changes"
-              echo "3. Edit the workflows and update the version numbers"
-              echo "4. Test the changes in your CI/CD pipeline"
-              echo ""
-              echo "---"
-              echo ""
-              echo "<details>"
-              echo "<summary>Raw actions-up output</summary>"
-              echo ""
-              echo '```'
-              cat actions-up-raw.txt
-              echo '```'
-              echo "</details>"
-            } > actions-up-report.md
-
-            echo "has-updates=true" >> $GITHUB_OUTPUT
-            echo "update-count=$UPDATE_COUNT" >> $GITHUB_OUTPUT
           else
             echo "All GitHub Actions are up to date!" >> $GITHUB_STEP_SUMMARY
-
-            {
-              echo "## GitHub Actions Update Report"
-              echo ""
-              echo "### All GitHub Actions in this repository are up to date!"
-              echo ""
-              echo "No action required. Your workflows are using the latest versions of all GitHub Actions."
-            } > actions-up-report.md
-
-            echo "has-updates=false" >> $GITHUB_OUTPUT
-            echo "update-count=0" >> $GITHUB_OUTPUT
           fi
 
-      
+      - name: Auto-update GitHub Actions
+        if: steps.check.outputs['updates-found'] == 'true'
+        run: |
+          echo "Running automatic update..."
+          # This updates workflow files in-place
+          actions-up --yes
 
-    #   - name: Fail if outdated actions found
-    #     if: steps.actions-check.outputs.has-updates == 'true'
-    #     run: |
-    #       echo "::error:: Found ${{ steps.actions-check.outputs.update-count }} outdated GitHub Actions. Please update them before merging."
-    #       echo ""
-    #       echo "You can update them by running: npx actions-up"
-    #       echo "Or manually update the versions in your workflows."
-    #       exit 1
+      - name: Commit & Push Updated Workflows
+        if: steps.check.outputs['updates-found'] == 'true'
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+          git add .github/workflows || true
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "chore: update outdated GitHub Actions"
+            git push
+          fi
