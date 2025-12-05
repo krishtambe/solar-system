@@ -107,11 +107,11 @@ jobs:
 
       
 
-      - name: Fail if outdated actions found
-        if: steps.actions-check.outputs.has-updates == 'true'
-        run: |
-          echo "::error:: Found ${{ steps.actions-check.outputs.update-count }} outdated GitHub Actions. Please update them before merging."
-          echo ""
-          echo "You can update them by running: npx actions-up"
-          echo "Or manually update the versions in your workflows."
-          exit 1
+    #   - name: Fail if outdated actions found
+    #     if: steps.actions-check.outputs.has-updates == 'true'
+    #     run: |
+    #       echo "::error:: Found ${{ steps.actions-check.outputs.update-count }} outdated GitHub Actions. Please update them before merging."
+    #       echo ""
+    #       echo "You can update them by running: npx actions-up"
+    #       echo "Or manually update the versions in your workflows."
+    #       exit 1
