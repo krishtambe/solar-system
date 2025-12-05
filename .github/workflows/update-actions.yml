@@ -1,7 +1,7 @@
 name: Check for outdated GitHub Actions
 
 on:
-  push:
+  push
 
 permissions:
   contents: write
@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -29,7 +29,6 @@ jobs:
         id: check
         run: |
           actions-up --dry-run > actions-up-raw.txt 2>&1 || true
-
           if grep -q "→" actions-up-raw.txt; then
             echo "updates-found=true" >> $GITHUB_OUTPUT
           else
@@ -38,9 +37,9 @@ jobs:
 
       - name: Auto-update workflow files
         if: steps.check.outputs['updates-found'] == 'true'
-        run: npx actions-up --yes
+        run: actions-up --yes
 
-      - name: Configure Git user
+      - name: Configure Git
         if: steps.check.outputs['updates-found'] == 'true'
         run: |
           git config --global user.name "github-actions"
@@ -57,21 +56,22 @@ jobs:
         if: steps.check.outputs['updates-found'] == 'true'
         run: |
           git add .github/workflows || true
-          
+
           if git diff --cached --quiet; then
-            echo "No changes to commit."
+            echo "No updates to commit."
             exit 0
           fi
 
           git commit -m "chore: update outdated GitHub Actions"
 
-      - name: Push branch using Classic PAT
+      - name: Push branch using Classic PAT 
         if: steps.check.outputs['updates-found'] == 'true'
         run: |
-           # Disable GitHub credential helper so PAT is actually used
-           git config --global credential.helper ""
-          
-           git push \
+          # Disable GitHub credential helper so PAT is actually used
+          git config --global credential.helper ""
+
+          # Push using PAT (must have repo + workflow scopes)
+          git push \
             "https://${{ secrets.PAT_CLASSIC }}@github.com/${{ github.repository }}" \
             HEAD:${UPDATE_BRANCH}
 
@@ -79,7 +79,8 @@ jobs:
         if: steps.check.outputs['updates-found'] == 'true'
         uses: peter-evans/create-pull-request@v6
         with:
+          token: ${{ secrets.PAT_CLASSIC }}
           branch: ${{ env.UPDATE_BRANCH }}
           title: "chore: update outdated GitHub Actions"
-          body: "Automated update using actions-up."
-          token: ${{ secrets.PAT_CLASSIC }}
+          body: |
+            Automated update of GitHub Actions (via actions-up).
