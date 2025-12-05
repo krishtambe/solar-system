@@ -1,9 +1,7 @@
 name: Check for outdated GitHub Actions
 
 on:
-  push:
-    branches:
-      - main
+  push
 
 jobs:
   check-actions:
@@ -62,7 +60,7 @@ jobs:
         run: |
           echo "Running automatic update..."
           # This updates workflow files in-place
-          actions-up --yes
+          npx actions-up 
 
       - name: Commit & Push Updated Workflows
         if: steps.check.outputs['updates-found'] == 'true'
