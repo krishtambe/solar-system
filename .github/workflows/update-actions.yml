@@ -5,12 +5,10 @@ on:
 
 permissions:
   contents: write
-  workflows: write
   pull-requests: write
 
 jobs:
   check-actions:
-    name: Check & Update GitHub Actions
     runs-on: ubuntu-latest
 
     steps:
@@ -39,22 +37,26 @@ jobs:
         if: steps.check.outputs['updates-found'] == 'true'
         run: actions-up --yes
 
-      - name: Commit changes to a PR branch
+      - name: Commit changes
         if: steps.check.outputs['updates-found'] == 'true'
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
 
           git checkout -b gha-updates-${{ github.run_id }}
-
           git add .github/workflows || true
+
           if git diff --cached --quiet; then
-            echo "No workflow updates detected"
+            echo "No updates."
             exit 0
           fi
 
           git commit -m "chore: update outdated GitHub Actions"
-          git push origin HEAD
+
+      - name: Push branch with PAT
+        if: steps.check.outputs['updates-found'] == 'true'
+        run: |
+          git push https://${{ secrets.ACTIONS_UPDATE_PAT }}@github.com/${{ github.repository }} HEAD:gha-updates-${{ github.run_id }}
 
       - name: Create Pull Request
         if: steps.check.outputs['updates-found'] == 'true'
@@ -62,4 +64,4 @@ jobs:
         with:
           branch: gha-updates-${{ github.run_id }}
           title: "chore: update outdated GitHub Actions"
-          body: "Automated update of outdated GitHub Actions using actions-up."
+          body: "Automated update using actions-up."
