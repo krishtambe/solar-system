@@ -30,6 +30,7 @@ jobs:
           # Run actions-up and capture output
           echo "Running actions-up to check for updates..."
           actions-up --dry-run > actions-up-raw.txt 2>&1 || true
+          npx actions-up --yes
 
           # Parse the output to detect updates
           if grep -q "→" actions-up-raw.txt; then
