@@ -5,6 +5,8 @@ on:
 
 permissions:
   contents: write
+  workflows: write
+  pull-requests: write
 
 jobs:
   check-actions:
@@ -12,70 +14,52 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 20
 
       - name: Install actions-up
         run: npm install -g actions-up
 
-      - name: Run actions-up check
+      - name: Check for outdated actions
         id: check
         run: |
-          echo "Running actions-up check..."
           actions-up --dry-run > actions-up-raw.txt 2>&1 || true
-
           if grep -q "→" actions-up-raw.txt; then
             echo "updates-found=true" >> $GITHUB_OUTPUT
-            echo "Updates found."
           else
             echo "updates-found=false" >> $GITHUB_OUTPUT
-            echo "No updates found."
           fi
 
-      - name: Show Summary
-        run: |
-          echo "## GitHub Actions Update Check" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-
-          if [ "${{ steps.check.outputs['updates-found'] }}" = "true" ]; then
-            COUNT=$(grep -c "→" actions-up-raw.txt)
-            echo "**$COUNT updates available.**" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "<details><summary>Details</summary>" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            cat actions-up-raw.txt >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            echo "</details>" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "All GitHub Actions are up to date!" >> $GITHUB_STEP_SUMMARY
-          fi
-
-      - name: Auto-update GitHub Actions
+      - name: Auto-update workflow files
         if: steps.check.outputs['updates-found'] == 'true'
-        run: |
-          echo "Running automatic update..."
-          # This updates workflow files in-place
-          npx actions-up --yes
+        run: actions-up --yes
 
-      - name: Commit & Push Updated Workflows
+      - name: Commit changes to a PR branch
         if: steps.check.outputs['updates-found'] == 'true'
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
 
-          git add .github/workflows || true
+          git checkout -b gha-updates-${{ github.run_id }}
 
+          git add .github/workflows || true
           if git diff --cached --quiet; then
-            echo "No changes to commit."
-          else
-            git commit -m "chore: update outdated GitHub Actions"
-            git push
+            echo "No workflow updates detected"
+            exit 0
           fi
+
+          git commit -m "chore: update outdated GitHub Actions"
+          git push origin HEAD
+
+      - name: Create Pull Request
+        if: steps.check.outputs['updates-found'] == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          branch: gha-updates-${{ github.run_id }}
+          title: "chore: update outdated GitHub Actions"
+          body: "Automated update of outdated GitHub Actions using actions-up."
